@@ -14,100 +14,49 @@ Note: Do not import any other modules here.
 '''
 import numpy as np
 
-
 def optimize(f, g, c, x0, n, count, prob):
-    """
-    Args:
-        f (function): Function to be optimized
-        g (function): Gradient function for `f`
-        c (function): Function evaluating constraints
-        x0 (np.array): Initial position to start from
-        n (int): Number of evaluations allowed. Remember `f` and `c` cost 1 and `g` costs 2
-        count (function): takes no arguments are reutrns current count
-        prob (str): Name of the problem. So you can use a different strategy 
-                 for each problem. `prob` can be `simple1`,`simple2`,`simple3`,
-                 `secret1` or `secret2`
-    Returns:
-        x_best (np.array): best selection of variables found
-    """
-    """
-    Constrained optimization via quadratic exterior penalty + gradient descent.
-    """
+    rng = np.random.RandomState(42)
 
-    # problem-specific tuning
-    if prob == 'simple1':
-        μ = 1000.0
-        α = 1e-3
-    elif prob == 'simple2':
-        μ = 10.0
-        α = 1e-5
-    elif prob == 'simple3':
-        μ = 15.0
-        α = 1e-2
-    elif prob == 'secret1':
-        μ = 10.0
-        α = 1e-2
-    elif prob == 'secret2':
-        μ = 10.0
-        α = 1e-2
+    # 1) Start from x0; if it's infeasible, try to find a nearby feasible point
+    x_best = np.array(x0, dtype=float)
+    if np.any(c(x_best) > 0) and count() < n:
+        for _ in range(500):
+            if count() + 1 > n:
+                break
+            # small random shake around x0
+            x_try = x_best + rng.randn(*x_best.shape)
+            if np.all(c(x_try) <= 0):
+                x_best = x_try
+                break
 
-    h = 1e-6                             # finite-difference step for ∇c
-    x = x0.copy()
-    # initialize best feasible
-    c0 = c(x)
-    f0 = f(x)
-    if np.all(c0 <= 0):
-        x_best, f_best = x.copy(), f0
-    else:
-        x_best, f_best = x0.copy(), np.inf
+    # 2) Evaluate its objective (if budget remains)
+    if count() + 1 > n:
+        return x_best
+    f_best = f(x_best)
 
-    # limit iterations so we don’t loop forever
-    max_iters = max(100, n // 10)
+    # 3) Randomized local search with shrinking step‐size
+    max_iters = max(1, n // 2)
+    init_step = 1.0  # you can tune this
 
-    for _ in range(max_iters):
-        if count() >= n:
+    for i in range(int(max_iters)):
+        # stop if not enough budget for one constraint + one f‐eval
+        if count() + 2 > n:
             break
 
-        # 1) compute ∇f
-        grad = g(x)
+        # shrink step‐size linearly
+        step = init_step * (1 - i / max_iters)
 
-        # 2) compute ∇ of penalty term: 2·μ·∑[c_i>0] c_i·∇c_i
-        cvals = c(x)
-        for i, ci in enumerate(cvals):
-            if ci > 0:
-                # finite-difference ∇c_i
-                grad_ci = np.zeros_like(x)
-                for j in range(len(x)):
-                    if count() >= n:
-                        break
-                    xh = x.copy()
-                    xh[j] += h
-                    grad_ci[j] = (c(xh)[i] - ci) / h
-                grad += 2 * μ * ci * grad_ci
+        # propose a candidate
+        x_cand = x_best + step * rng.randn(*x_best.shape)
 
-        # 3) take a gradient-descent step on the penalized objective
-        x_new = x - α * grad
+        # check feasibility
+        c_vals = c(x_cand)   # costs 1 eval
+        if np.any(c_vals > 0):
+            continue
 
-        # 4) accept step only if the augmented objective decreases
-        #    φ(x) = f(x) + μ·∑max(0,c_i)^2
-        φ_old = f(x) + μ * np.sum(np.maximum(0, cvals)**2)
-        if count() >= n:
-            break
-        c_new = c(x_new)
-        φ_new = f(x_new) + μ * np.sum(np.maximum(0, c_new)**2)
-        if φ_new < φ_old:
-            x = x_new
-        else:
-            α *= 0.5   # backtrack
-
-        # 5) if new x is feasible and better, record it
-        if np.all(c_new <= 0):
-            f_new = f(x)
-            if f_new < f_best:
-                f_best, x_best = f_new, x.copy()
-
-        # 6) simple convergence test (small step)
-        if np.linalg.norm(α * grad) < 1e-6:
-            break
+        # check objective
+        f_cand = f(x_cand)   # costs 1 eval
+        if f_cand < f_best:
+            x_best, f_best = x_cand, f_cand
 
     return x_best
