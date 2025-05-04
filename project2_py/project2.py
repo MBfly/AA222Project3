@@ -1,3 +1,17 @@
+#
+# File: project2.py
+#
+
+## top-level submission file
+
+'''
+Note: Do not import any other modules here.
+        To import from another file xyz.py here, type
+        import project2_py.xyz
+        However, do not import any modules except numpy in those files.
+        It's ok to import modules only in files that are
+        not imported here (e.g. for your plotting code).
+'''
 import numpy as np
 
 def optimize(f, g, c, x0, n, count, prob):
