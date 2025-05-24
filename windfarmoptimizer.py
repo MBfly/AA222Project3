@@ -39,7 +39,7 @@ def objective(x, n):
     return -min_separation(x, n)
 
 # Optimize for a given n with extensive search
-def optimize_for_n(n, runs=50):
+def optimize_for_n(n, runs=10):
     bounds = [(0.0, 10.0)] * (2 * n)
     best_p = -np.inf
     best_x = None
@@ -81,7 +81,7 @@ def optimize_for_n(n, runs=50):
 # Main execution
 def main():
     results = []
-    for n in range(9, 11):
+    for n in range(2, 11):
         print(f"Optimizing for n={n} turbines:")
         p_opt, _ = optimize_for_n(n, runs=10)
         print(f"=> Best p for n={n}: {p_opt:.6f}\n")
