@@ -1,26 +1,10 @@
 #!/usr/bin/env python3
-"""
-Optimize wind turbine placement on a 10x10 plot to maximize minimum separation p using SciPy's dual_annealing.
-
-Forbidden regions:
- 1. Circular region center (5,5), radius 2
- 2. Semi-circle center (0,0), radius 1 (y >= 0)
- 3. Semi-circle center (0,10), radius 1 (y <= 10)
-
-For each n in [2..10], uses multiple runs of dual_annealing for an extensive global search
-and a deep Nelder–Mead refinement.
-
-Writes results to windfarm_efficiency.csv (no header), columns: n, p
-Dependencies: numpy, scipy
-"""
 import numpy as np
 from scipy.optimize import dual_annealing, minimize
 import csv
 import time
 
-#--------------------------------------------------
 # Forbidden region checks
-#--------------------------------------------------
 def in_middle_circle(x, y, center=(5, 5), r=2):
     return (x - center[0])**2 + (y - center[1])**2 <= r**2
 
@@ -41,9 +25,7 @@ def is_valid(pts):
             return False
     return True
 
-#--------------------------------------------------
 # Minimum separation calculation
-#--------------------------------------------------
 def min_separation(x, n):
     pts = x.reshape(n, 2)
     if not is_valid(pts):
@@ -52,16 +34,12 @@ def min_separation(x, n):
     np.fill_diagonal(d, np.inf)
     return np.min(d)
 
-#--------------------------------------------------
 # Objective: maximize p => minimize -p
-#--------------------------------------------------
 def objective(x, n):
     return -min_separation(x, n)
 
-#--------------------------------------------------
 # Optimize for a given n with extensive search
-#--------------------------------------------------
-def optimize_for_n(n, runs=10):
+def optimize_for_n(n, runs=50):
     bounds = [(0.0, 10.0)] * (2 * n)
     best_p = -np.inf
     best_x = None
@@ -100,18 +78,15 @@ def optimize_for_n(n, runs=10):
 
     return best_p, best_x
 
-#--------------------------------------------------
 # Main execution
-#--------------------------------------------------
 def main():
     results = []
-    for n in range(2, 11):
+    for n in range(9, 11):
         print(f"Optimizing for n={n} turbines:")
         p_opt, _ = optimize_for_n(n, runs=10)
         print(f"=> Best p for n={n}: {p_opt:.6f}\n")
         results.append((n, p_opt))
 
-    # Write CSV
     with open('windfarm_efficiency.csv', 'w', newline='') as f:
         writer = csv.writer(f)
         for n, p in results:
